@@ -1,0 +1,16 @@
+fist
+one
+two
+three
+four
+five
+six
+seven
+eight
+nine
+zero
+thumbs_up
+thumbs_down
+up_phone
+down_phone
+claw

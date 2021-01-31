@@ -1,0 +1,64 @@
+item { 
+	name:'fist'
+	id:1
+}
+item { 
+	name:'one'
+	id:2
+}
+item { 
+	name:'two'
+	id:3
+}
+item { 
+	name:'three'
+	id:4
+}
+item { 
+	name:'four'
+	id:5
+}
+item { 
+	name:'five'
+	id:6
+}
+item { 
+	name:'six'
+	id:7
+}
+item { 
+	name:'seven'
+	id:8
+}
+item { 
+	name:'eight'
+	id:9
+}
+item { 
+	name:'nine'
+	id:10
+}
+item { 
+	name:'zero'
+	id:11
+}
+item { 
+	name:'thumbs_up'
+	id:12
+}
+item { 
+	name:'thumbs_down'
+	id:13
+}
+item { 
+	name:'up_phone'
+	id:14
+}
+item { 
+	name:'down_phone'
+	id:15
+}
+item { 
+	name:'claw'
+	id:16
+}
