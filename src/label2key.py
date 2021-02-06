@@ -29,7 +29,11 @@ class label2key(object):
 			print("keys_path="+keys_path)
 
 	def label2key(self,LABEL):
-		GESTURE=self.__data[LABEL]
+		GESTURE=""
+		try:
+			GESTURE=self.__data[LABEL]
+		except:
+			return "unknown"
 		return GESTURE
 
 		
