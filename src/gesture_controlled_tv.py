@@ -1,10 +1,14 @@
 import os
 import time
+from threading import Thread
+
+import cv2 as cv
+import numpy as np
+
 from importlib import util
 from argparse import ArgumentParser as argparser
-import cv2 as cv
-from threading import Thread
-import numpy as np
+
+from label2key import label2key as l2k
 
 GRAPH_DIR = '../frozen_graph'
 
@@ -15,6 +19,7 @@ argument_parser.add_argument('--labelmap', help="Name of the label map", default
 argument_parser.add_argument('--keymap', help="Name of the ri key map", default='keymap.txt')
 argument_parser.add_argument('--score_threshold', help="Minimum score to confirm the detection as legitimate.", default=0.5)
 argument_parser.add_argument('--use_delegates', help="Selecting if delegates will be used from the interpreter.", default=False)
+argument_parser.add_argument('--tvname', help="Name of the tv name.", default="kerem-tv")
 
 arguments = argument_parser.parse_args()
 
@@ -69,10 +74,13 @@ capture = cv.VideoCapture(0)
 
 (ret, curr_frame) = capture.read()
 
-#camera_read_thread = Thread(target=capture.read, args=())
-#camera_read_thread.start()
+camera_read_thread = Thread(target=capture.read, args=())
+camera_read_thread.start()
 
 time.sleep(1)
+
+l2k_map = l2k.label2key(KEYMAP_PATH, LABELMAP_PATH)
+
 while True:
     tick_count = cv.getTickCount()
     
@@ -96,8 +104,12 @@ while True:
     score_list = list(score_list)
     max_idx = score_list.index(max(score_list))
     if(max(score_list) > SCORE_THRESHOLD):
-        print(label_list[int(class_list[max_idx])], " with score of ", max(score_list))
-    
+        curr_label = label_list[int(class_list[max_idx])]
+        print(curr_label, " with score of ", max(score_list))
+        print("irsend SEND_ONCE " + arguments.tvname + " " + l2k_map[curr_label])
+
+    cv.imshow("detect", captured_frame)
+
     if cv.waitKey(1) == ord('q'):
         break
 
