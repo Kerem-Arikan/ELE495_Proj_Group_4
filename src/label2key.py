@@ -1,8 +1,8 @@
 class label2key(object):
 	"""docstring for label2key"""
-	def __init__(self, keys_path="keymap.txt", gestures_path="../frozen_graph/labelmap.txt"):
-		super(label2key, self).__init__()
-		label2key.__data={}
+		
+	def label2key(keys_path="keymap.txt", gestures_path="../frozen_graph/labelmap.txt"):
+		dic_data={}
 		try:
 			keys = open(keys_path, "r")
 			gestures = open(gestures_path,"r")
@@ -20,16 +20,14 @@ class label2key(object):
 				if dumbgesture[-1]=='\n':
 					dumbgesture = dumbgesture[:-1]
 				
-				label2key.__data[dumbgesture]=dumbkey
+				dic_data[dumbgesture]=dumbkey
 			keys.close()
 			gestures.close()	
 		except IOError:
 			print("IOError")
 			print("gestures_path="+gestures_path)
 			print("keys_path="+keys_path)
+		return dic_data
 
-	def label2key(self,LABEL):
-		GESTURE=self.__data[LABEL]
-		return GESTURE
 
 		
