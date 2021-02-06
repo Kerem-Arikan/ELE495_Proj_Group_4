@@ -63,32 +63,41 @@ cv.getTickFrequency()
 
 
 capture = cv.VideoCapture(0)
-capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
-capture.set(3, resolution_width)
-capture.set(4, resolution_height)
+#capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
+#capture.set(3, resolution_width)
+#capture.set(4, resolution_height)
 
-(g, curr_frame) = capture.read()
+(ret, curr_frame) = capture.read()
 
-camera_read_thread = Thread(target=capture.read, args=())
-camera_read_thread.start()
+#camera_read_thread = Thread(target=capture.read, args=())
+#camera_read_thread.start()
 
 time.sleep(1)
 while True:
     tick_count = cv.getTickCount()
     
-    (g, captured_frame) = capture.read()
+    (ret, captured_frame) = capture.read()
 
-    frame = cv.cvtColor(captured_frame, cv.COLOR_BGR2RGB)
-    frame = cv.resize(frame, (input_info[0]['shape'][1], input_info[0]['shape'][2]))
+    #captured_frame = cv.cvtColor(captured_frame, cv.COLOR_BGR2RGB)
+    frame = cv.resize(captured_frame, (input_info[0]['shape'][1], input_info[0]['shape'][2]))
 
     input_dat = np.expand_dims(frame, axis=0)
     
     if input_info[0]['dtype'] == np.float32:
         input_dat = (np.float32(input_dat) - input_avg) / input_standart
 
-    interp.set_tensor(input_info[0]['index'], input_info)
+    interp.set_tensor(input_info[0]['index'], input_dat)
     interp.invoke()
 
+    box_list = interp.get_tensor(output_info[0]['index'])[0]
+    class_list = interp.get_tensor(output_info[1]['index'])[0]
+    score_list = interp.get_tensor(output_info[2]['index'])[0]
+
+    score_list = list(score_list)
+    max_idx = score_list.index(max(score_list))
+    if(max(score_list) > SCORE_THRESHOLD):
+        print(label_list[int(class_list[max_idx])], " with score of ", max(score_list))
+    
     if cv.waitKey(1) == ord('q'):
         break
 
