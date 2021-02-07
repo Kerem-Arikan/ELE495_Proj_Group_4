@@ -20,6 +20,7 @@ argument_parser.add_argument('--keymap', help="Name of the ri key map", default=
 argument_parser.add_argument('--score_threshold', help="Minimum score to confirm the detection as legitimate.", default=0.5)
 argument_parser.add_argument('--use_delegates', help="Selecting if delegates will be used from the interpreter.", default=False)
 argument_parser.add_argument('--tvname', help="Name of the tv name.", default="kerem-tv")
+argumetn_parser.add_argument('--response_rate', help="How quick should the detection be?", default=10)
 
 arguments = argument_parser.parse_args()
 
@@ -68,9 +69,9 @@ cv.getTickFrequency()
 
 
 capture = cv.VideoCapture(0)
-#capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
-#capture.set(3, resolution_width)
-#capture.set(4, resolution_height)
+capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
+capture.set(3, resolution_width)
+capture.set(4, resolution_height)
 
 (ret, curr_frame) = capture.read()
 
@@ -80,6 +81,9 @@ camera_read_thread.start()
 time.sleep(1)
 
 l2k_map = l2k.label2key(KEYMAP_PATH, LABELMAP_PATH)
+
+counter = 0
+prev_label = None
 
 while True:
     tick_count = cv.getTickCount()
@@ -101,16 +105,22 @@ while True:
     class_list = interp.get_tensor(output_info[1]['index'])[0]
     score_list = interp.get_tensor(output_info[2]['index'])[0]
 
+    if cv.waitKey(1) == ord('q'):
+        break
+
     score_list = list(score_list)
     max_idx = score_list.index(max(score_list))
     if(max(score_list) > SCORE_THRESHOLD):
         curr_label = label_list[int(class_list[max_idx])]
-        print(curr_label, " with score of ", max(score_list))
-        print("irsend SEND_ONCE " + arguments.tvname + " " + l2k_map[curr_label])
+        if curr_label == prev_label:
+            if counter == arguments.response_rate:
+                counter = 0
+                os.system("irsend SEND_ONCE " + arguments.tvname + " " + l2k_map[curr_label])
+            else: 
+                counter += 1
+        else:
+            counter = 0
+        prev_label = curr_label
 
-    cv.imshow("detect", captured_frame)
-
-    if cv.waitKey(1) == ord('q'):
-        break
 
 capture.release()

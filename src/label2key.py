@@ -28,6 +28,4 @@ class label2key(object):
 			print("gestures_path="+gestures_path)
 			print("keys_path="+keys_path)
 		return dic_data
-
-
 		
