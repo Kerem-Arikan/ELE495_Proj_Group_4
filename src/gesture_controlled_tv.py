@@ -1,126 +1,191 @@
 import os
-import time
-from threading import Thread
-
-import cv2 as cv
+import argparse
+import cv2
 import numpy as np
+import sys
+import time
+import importlib.util
+from video_capture import video_capture
 
-from importlib import util
-from argparse import ArgumentParser as argparser
 
-from label2key import label2key as l2k
 
-GRAPH_DIR = '../frozen_graph'
+def label2key(keys_path, gestures_path):
+    dic_data={}
+    try:
+        keys = open(keys_path, "r")
+        gestures = open(gestures_path,"r")
+        while True:
+            dumbkey = keys.readline()
+            dumbgesture = gestures.readline()
+            # End of file check
+            if dumbkey == '':
+                break
+            if dumbgesture == '':
+                break
+            # Check if there is new line symbol.
+            if dumbkey[-1]=="\n":
+                dumbkey = dumbkey[:-1]
+            if dumbgesture[-1]=='\n':
+                dumbgesture = dumbgesture[:-1]
 
-argument_parser = argparser()
-argument_parser.add_argument('--graphname', help="Name of the graph file.", default='detect.tflite')
-argument_parser.add_argument('--webcamres', help="Requested resolution of the webcam.", default='1280x720')
-argument_parser.add_argument('--labelmap', help="Name of the label map", default='labelmap.txt')
-argument_parser.add_argument('--keymap', help="Name of the ri key map", default='keymap.txt')
-argument_parser.add_argument('--score_threshold', help="Minimum score to confirm the detection as legitimate.", default=0.5)
-argument_parser.add_argument('--use_delegates', help="Selecting if delegates will be used from the interpreter.", default=False)
-argument_parser.add_argument('--tvname', help="Name of the tv name.", default="kerem-tv")
-argumetn_parser.add_argument('--response_rate', help="How quick should the detection be?", default=10)
+            dic_data[dumbgesture]=dumbkey
+        keys.close()
+        gestures.close()
+    except IOError:
+        print("IOError")
+        print("gestures_path="+gestures_path)
+        print("keys_path="+keys_path)
+    return dic_data
 
-arguments = argument_parser.parse_args()
 
-GRAPH_PATH = os.path.join(GRAPH_DIR, arguments.graphname)
-SCORE_THRESHOLD = float(arguments.score_threshold)
+parser = argparse.ArgumentParser()
+parser.add_argument('--modeldir', help='Folder the .tflite file is located in',
+                    default='../frozen_graph')
+parser.add_argument('--graph', help='Name of the .tflite file, if different than detect.tflite',
+                    default='detect.tflite')
+parser.add_argument('--labels', help='Name of the labelmap file, if different than labelmap.txt',
+                    default='labelmap.txt')
+parser.add_argument('--threshold', help='Minimum confidence threshold for displaying detected objects',
+                    default=0.5)
+parser.add_argument('--resolution', help='Desired webcam resolution in WxH. If the webcam does not support the resolution entered, errors may occur.',
+                    default='1280x720')
+parser.add_argument('--edgetpu', help='Use Coral Edge TPU Accelerator to speed up detection',
+                    action='store_true')
+parser.add_argument('--allow_cam_display', help='Display the captured image or not.', default=True)
 
-LABELMAP_PATH = os.path.join(GRAPH_DIR, arguments.labelmap)
-KEYMAP_PATH = os.path.join(os.getcwd(), arguments.keymap)
+parser.add_argument('--tvname', help="Name of the tv name.", default="kerem-tv")
 
-labelmap_file = open(LABELMAP_PATH, 'r')
-label_list = [currline.strip() for currline in labelmap_file.readlines()]
-labelmap_file.close()
+parser.add_argument('--response_rate', help="How quick should the detection be?", default=10)
 
-resolution_width, resolution_height = arguments.webcamres.split('x')
-resolution_width = int(resolution_width)
-resolution_height = int(resolution_height)
+args = parser.parse_args()
 
-print(arguments.use_delegates)
+MODEL_NAME = args.modeldir
+GRAPH_NAME = args.graph
+LABELMAP_NAME = args.labels
+min_conf_threshold = float(args.threshold)
+resW, resH = args.resolution.split('x')
+imW, imH = int(resW), int(resH)
+use_TPU = args.edgetpu
 
-tflite_exists = util.find_spec('tflite_runtime')
-if tflite_exists:
+label_key_map = label2key(keys_path="./keymap.txt", gestures_path="../frozen_graph/labelmap.txt")
+
+counter_limit = 2
+
+pkg = importlib.util.find_spec('tflite_runtime')
+if pkg:
     from tflite_runtime.interpreter import Interpreter
-    if arguments.use_delegates: 
+    if use_TPU:
         from tflite_runtime.interpreter import load_delegate
-    
 else:
     from tensorflow.lite.python.interpreter import Interpreter
-    if arguments.use_delegates: 
+    if use_TPU:
         from tensorflow.lite.python.interpreter import load_delegate
 
-if arguments.use_delegates:
-    delegate_list = [load_delegate('libedgetpu.so.1.0')] 
-    interp = Interpreter(model_path=GRAPH_PATH, experimental_delegates=delegate_list)
+if use_TPU:
+    if (GRAPH_NAME == 'detect.tflite'):
+        GRAPH_NAME = 'edgetpu.tflite'       
+
+CWD_PATH = os.getcwd()
+
+PATH_TO_CKPT = os.path.join(CWD_PATH,MODEL_NAME,GRAPH_NAME)
+
+PATH_TO_LABELS = os.path.join(CWD_PATH,MODEL_NAME,LABELMAP_NAME)
+
+with open(PATH_TO_LABELS, 'r') as f:
+    labels = [line.strip() for line in f.readlines()]
+
+if labels[0] == '???':
+    del(labels[0])
+
+if use_TPU:
+    interpreter = Interpreter(model_path=PATH_TO_CKPT,
+                              experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+    print(PATH_TO_CKPT)
 else:
-    interp = Interpreter(model_path=GRAPH_PATH)
+    interpreter = Interpreter(model_path=PATH_TO_CKPT)
 
-interp.allocate_tensors()
+interpreter.allocate_tensors()
 
-input_info = interp.get_input_details()
-output_info = interp.get_output_details()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+height = input_details[0]['shape'][1]
+width = input_details[0]['shape'][2]
 
-input_avg = input_standart = 127.5
+floating_model = (input_details[0]['dtype'] == np.float32)
 
-framerate = 1
-cv.getTickFrequency()
+input_mean = 127.5
+input_std = 127.5
 
+frame_rate_calc = 1
+freq = cv2.getTickFrequency()
 
-capture = cv.VideoCapture(0)
-capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter_fourcc(*'MJPG'))
-capture.set(3, resolution_width)
-capture.set(4, resolution_height)
-
-(ret, curr_frame) = capture.read()
-
-camera_read_thread = Thread(target=capture.read, args=())
-camera_read_thread.start()
-
+videostream = video_capture(resolution=(imW,imH),framerate=30).start()
 time.sleep(1)
 
-l2k_map = l2k.label2key(KEYMAP_PATH, LABELMAP_PATH)
-
+prev_obj_name = 0
 counter = 0
-prev_label = None
-
 while True:
-    tick_count = cv.getTickCount()
+
+    t1 = cv2.getTickCount()
     
-    (ret, captured_frame) = capture.read()
+    frame1 = videostream.read()
 
-    #captured_frame = cv.cvtColor(captured_frame, cv.COLOR_BGR2RGB)
-    frame = cv.resize(captured_frame, (input_info[0]['shape'][1], input_info[0]['shape'][2]))
+    frame = frame1.copy()
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_resized = cv2.resize(frame_rgb, (width, height))
+    input_data = np.expand_dims(frame_resized, axis=0)
 
-    input_dat = np.expand_dims(frame, axis=0)
-    
-    if input_info[0]['dtype'] == np.float32:
-        input_dat = (np.float32(input_dat) - input_avg) / input_standart
+    if floating_model:
+        input_data = (np.float32(input_data) - input_mean) / input_std
 
-    interp.set_tensor(input_info[0]['index'], input_dat)
-    interp.invoke()
+    interpreter.set_tensor(input_details[0]['index'],input_data)
+    interpreter.invoke()
 
-    box_list = interp.get_tensor(output_info[0]['index'])[0]
-    class_list = interp.get_tensor(output_info[1]['index'])[0]
-    score_list = interp.get_tensor(output_info[2]['index'])[0]
+    boxes = interpreter.get_tensor(output_details[0]['index'])[0] 
+    classes = interpreter.get_tensor(output_details[1]['index'])[0]
+    scores = interpreter.get_tensor(output_details[2]['index'])[0]
+    #num = interpreter.get_tensor(output_details[3]['index'])[0] 
 
-    if cv.waitKey(1) == ord('q'):
+    for i in range(len(scores)):
+        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
+
+            ymin = int(max(1,(boxes[i][0] * imH)))
+            xmin = int(max(1,(boxes[i][1] * imW)))
+            ymax = int(min(imH,(boxes[i][2] * imH)))
+            xmax = int(min(imW,(boxes[i][3] * imW)))
+
+            cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
+
+            object_name = labels[int(classes[i])] 
+            label = '%s: %d%%' % (object_name, int(scores[i]*100)) 
+            labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) 
+            label_ymin = max(ymin, labelSize[1] + 10) 
+            cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
+            cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+
+            key_name = label_key_map[object_name]
+            command_string = "irsend SEND_ONCE" + " " + args.tvname + " " + key_name
+            if(prev_obj_name == object_name):
+                counter += 1
+                if(counter==counter_limit):
+                    print(command_string)
+                    os.system(command_string)
+                    counter = 0
+            else:
+                counter = 0
+            prev_obj_name = object_name
+
+    cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
+
+    cv2.imshow('Object detector', frame)
+
+    t2 = cv2.getTickCount()
+    time1 = (t2-t1)/freq
+    frame_rate_calc= 1/time1
+
+    if cv2.waitKey(1) == ord('q'):
         break
 
-    score_list = list(score_list)
-    max_idx = score_list.index(max(score_list))
-    if(max(score_list) > SCORE_THRESHOLD):
-        curr_label = label_list[int(class_list[max_idx])]
-        if curr_label == prev_label:
-            if counter == arguments.response_rate:
-                counter = 0
-                os.system("irsend SEND_ONCE " + arguments.tvname + " " + l2k_map[curr_label])
-            else: 
-                counter += 1
-        else:
-            counter = 0
-        prev_label = curr_label
+cv2.destroyAllWindows()
+videostream.stop()
 
-
-capture.release()
