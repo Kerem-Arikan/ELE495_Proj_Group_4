@@ -183,7 +183,7 @@ while True:
         count2send=0
         
     if(len(queue)>0):
-                count2send+=1;print("joke line coun2send is:",count2send)
+                count2send+=1;print("line coun2send is:",count2send)
     #'''
     cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
 
