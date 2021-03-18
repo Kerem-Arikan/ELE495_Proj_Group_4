@@ -35,12 +35,13 @@ def label2key(keys_path, gestures_path):
         print("IOError")
         print("gestures_path="+gestures_path)
         print("keys_path="+keys_path)
+    print(dic_data)
     return dic_data
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modeldir', help='Folder the .tflite file is located in',
-                    default='../frozen_graph')
+                    default='frozen_graph')
 parser.add_argument('--graph', help='Name of the .tflite file, if different than detect.tflite',
                     default='detect.tflite')
 parser.add_argument('--labels', help='Name of the labelmap file, if different than labelmap.txt',
@@ -67,7 +68,7 @@ resW, resH = args.resolution.split('x')
 imW, imH = int(resW), int(resH)
 use_TPU = args.edgetpu
 
-label_key_map = label2key(keys_path="./keymap.txt", gestures_path="../frozen_graph/labelmap.txt")
+label_key_map = label2key(keys_path="/home/pi/ELE495_Proj_Group_4/src/keymap.txt", gestures_path="/home/pi/ELE495_Proj_Group_4/frozen_graph/labelmap.txt")
 
 counter_limit = 2
 
@@ -85,7 +86,7 @@ if use_TPU:
     if (GRAPH_NAME == 'detect.tflite'):
         GRAPH_NAME = 'edgetpu.tflite'       
 
-CWD_PATH = os.getcwd()
+CWD_PATH = "/home/pi/ELE495_Proj_Group_4" #os.getcwd()
 
 PATH_TO_CKPT = os.path.join(CWD_PATH,MODEL_NAME,GRAPH_NAME)
 
@@ -148,21 +149,21 @@ while True:
 
     for i in range(len(scores)):
         if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
-
+            #'''
             ymin = int(max(1,(boxes[i][0] * imH)))
             xmin = int(max(1,(boxes[i][1] * imW)))
             ymax = int(min(imH,(boxes[i][2] * imH)))
             xmax = int(min(imW,(boxes[i][3] * imW)))
-
             cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
-
+            #'''
             object_name = labels[int(classes[i])] 
+            #'''
             label = '%s: %d%%' % (object_name, int(scores[i]*100)) 
             labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) 
             label_ymin = max(ymin, labelSize[1] + 10) 
             cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
             cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-
+            #'''
             key_name = label_key_map[object_name]
             command_string = "irsend SEND_ONCE" + " " + args.tvname + " " + key_name
             if(prev_obj_name == object_name):
@@ -174,15 +175,15 @@ while True:
             else:
                 counter = 0
             prev_obj_name = object_name
-
+    #'''
     cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
 
     cv2.imshow('Object detector', frame)
-
+    #'''
     t2 = cv2.getTickCount()
     time1 = (t2-t1)/freq
     frame_rate_calc= 1/time1
-
+    
     if cv2.waitKey(1) == ord('q'):
         break
 
