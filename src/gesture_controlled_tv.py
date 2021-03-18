@@ -54,7 +54,7 @@ parser.add_argument('--edgetpu', help='Use Coral Edge TPU Accelerator to speed u
                     action='store_true')
 parser.add_argument('--allow_cam_display', help='Display the captured image or not.', default=True)
 
-parser.add_argument('--tvname', help="Name of the tv name.", default="Samsung_TV") # kerem-tv Samsung_TV starbox
+parser.add_argument('--tvname', help="Name of the tv name.", default="kerem-tv") # kerem-tv Samsung_TV starbox
 
 parser.add_argument('--response_rate', help="How quick should the detection be?", default=10)
 
