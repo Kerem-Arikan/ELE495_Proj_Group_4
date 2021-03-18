@@ -54,7 +54,7 @@ parser.add_argument('--edgetpu', help='Use Coral Edge TPU Accelerator to speed u
                     action='store_true')
 parser.add_argument('--allow_cam_display', help='Display the captured image or not.', default=True)
 
-parser.add_argument('--tvname', help="Name of the tv name.", default="kerem-tv")
+parser.add_argument('--tvname', help="Name of the tv name.", default="Samsung_TV") # kerem-tv Samsung_TV starbox
 
 parser.add_argument('--response_rate', help="How quick should the detection be?", default=10)
 
@@ -122,7 +122,7 @@ freq = cv2.getTickFrequency()
 
 videostream = video_capture(resolution=(imW,imH),framerate=30).start()
 time.sleep(1)
-
+queue=[];count2send=0
 prev_obj_name = 0
 counter = 0
 while True:
@@ -169,12 +169,21 @@ while True:
             if(prev_obj_name == object_name):
                 counter += 1
                 if(counter==counter_limit):
-                    print(command_string)
-                    os.system(command_string)
+                    print(command_string,"only detected not sended")
+                    queue.append(command_string) #os.system(command_string)
                     counter = 0
             else:
                 counter = 0
             prev_obj_name = object_name
+    if(len(queue)>=2) or count2send>=4:
+        print("sending", len(queue),"command(s)")
+        for s in queue:
+            os.system(s);print(s,"SENDING")
+        queue=[]
+        count2send=0
+        
+    if(len(queue)>0):
+                count2send+=1;print("joke line coun2send is:",count2send)
     #'''
     cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
 
@@ -182,7 +191,7 @@ while True:
     #'''
     t2 = cv2.getTickCount()
     time1 = (t2-t1)/freq
-    frame_rate_calc= 1/time1
+    frame_rate_calc= 1/time1 #;print(frame_rate_calc)
     
     if cv2.waitKey(1) == ord('q'):
         break
