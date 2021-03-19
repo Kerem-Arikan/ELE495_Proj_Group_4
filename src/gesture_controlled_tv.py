@@ -61,6 +61,8 @@ parser.add_argument('--response_rate', help="How quick should the detection be?"
 
 parser.add_argument('--count2send_lim', help="back to back numbers", default=4)
 
+parser.add_argument('--debug_mode', help="Shows taken photos", default=0)
+
 args = parser.parse_args()
 
 send_lim = int(args.count2send_lim)
@@ -72,6 +74,7 @@ min_conf_threshold = float(args.threshold)
 resW, resH = args.resolution.split('x')
 imW, imH = int(resW), int(resH)
 use_TPU = args.edgetpu
+debug_enable= bool(args.debug_mode)
 
 label_key_map = label2key(keys_path="/home/pi/ELE495_Proj_Group_4/src/keymap.txt", gestures_path="/home/pi/ELE495_Proj_Group_4/frozen_graph/labelmap.txt")
 
@@ -155,21 +158,21 @@ while True:
 
     for i in range(len(scores)):
         if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
-            '''
-            ymin = int(max(1,(boxes[i][0] * imH)))
-            xmin = int(max(1,(boxes[i][1] * imW)))
-            ymax = int(min(imH,(boxes[i][2] * imH)))
-            xmax = int(min(imW,(boxes[i][3] * imW)))
-            cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
-            '''
+            if debug_enable:
+                ymin = int(max(1,(boxes[i][0] * imH)))
+                xmin = int(max(1,(boxes[i][1] * imW)))
+                ymax = int(min(imH,(boxes[i][2] * imH)))
+                xmax = int(min(imW,(boxes[i][3] * imW)))
+                cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), (10, 255, 0), 2)
+            
             object_name = labels[int(classes[i])] 
-            '''
-            label = '%s: %d%%' % (object_name, int(scores[i]*100)) 
-            labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) 
-            label_ymin = max(ymin, labelSize[1] + 10) 
-            cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
-            cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-            '''
+            if debug_enable:
+                label = '%s: %d%%' % (object_name, int(scores[i]*100)) 
+                labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2) 
+                label_ymin = max(ymin, labelSize[1] + 10) 
+                cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
+                cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+            
             key_name = label_key_map[object_name]
             command_string = "irsend SEND_ONCE" + " " + args.tvname + " " + key_name
             if(prev_obj_name == object_name):
@@ -196,11 +199,10 @@ while True:
         
     if(len(queue)>0):
                 count2send+=1;print("line coun2send is:",count2send)
-    '''
-    cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
-
-    cv2.imshow('Object detector', frame)
-    '''
+    if debug_enable:
+        cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
+        cv2.imshow('Object detector', frame)
+    
     t2 = cv2.getTickCount()
     time1 = (t2-t1)/freq
     frame_rate_calc= 1/time1 #;print(frame_rate_calc)
